@@ -18,45 +18,48 @@ def parse_url_query(url: str) -> Dict[str, str]:
 
 @dataclass
 class SearchInfo:
-    aliases: List[str]
-    anon_download_url: str
-    apps: List[str]
-    architecture: List[str]
+    aliases: List[Optional[str]]
+    anon_download_url: Optional[str]
+    apps: List[Optional[str]]
+    architecture: Optional[List[str]]
     binary_filesize: int
-    channel: str
-    common_ids: List[str]  # ?
-    confinement: str  # strict | classic ?
-    contact: str
-    content: str
+    channel: Optional[str]
+    common_ids: Optional[List[str]]  # ?
+    confinement: Optional[str]  # strict | classic ?
+    contact: Optional[str]
+    content: Optional[str]
     date_published: datetime.datetime
-    deltas: List[str]  # ?
-    description: str
-    developer_id: str
-    developer_name: str
-    developer_validation: str
-    download_sha3_384: str
-    download_sha512: str
-    download_url: str
+    deltas: Optional[List[str]]  # ?
+    description: Optional[str]
+    developer_id: Optional[str]
+    developer_name: Optional[str]
+    developer_validation: Optional[str]
+    download_sha3_384: Optional[str]
+    download_sha512: Optional[str]
+    download_url: Optional[str]
     gated_snap_ids: List[str]  # ?
-    icon_url: str
+    icon_url: Optional[str]
     last_updated: datetime.datetime
-    license: str
-    name: str
-    origin: str
-    package_name: str
+    license: Optional[str]
+    name: Optional[str]
+    origin: Optional[str]
+    package_name: Optional[str]
     prices: Dict[str, str]  # ?
     private: bool
-    publisher: str
-    ratings_average: str
-    release: List[str]
+    publisher: Optional[str]
+    ratings_average: Optional[str]
+    release: Optional[List[str]]
     revision: int
-    screenshot_urls: List[str]
-    snap_id: str
-    summary: str
-    support_url: str
-    title: str
-    version: str
-    website: str
+    screenshot_urls: Optional[List[str]]
+    snap_id: Optional[str]
+    summary: Optional[str]
+    support_url: Optional[str]
+    title: Optional[str]
+    version: Optional[str]
+    website: Optional[str]
+
+    def __hash__(self):
+        return hash(self.snap_id)
 
     def __repr__(self):
         return f'<{type(self).__name__} {self.package_name} {self.revision}>'
@@ -134,7 +137,12 @@ class Store:
         r.raise_for_status()
 
         data: Dict[str, Any] = r.json()
-        return Snap(_data=data, name=name, id=data['snap-id'])
+        return Snap(
+            _client=self.client,
+            _data=data,
+            name=name,
+            id=data['snap-id'],
+        )
 
     def snaps(self) -> List[SearchInfo]:
         return self.search()
@@ -143,7 +151,6 @@ class Store:
                text: Optional[str]=None,
                fields: Optional[List[str]]=None) -> List[SearchInfo]:
         page = None
-        infos = []
         while True:
             r = self.client.search(
                 text=text,
@@ -152,11 +159,9 @@ class Store:
                 page_size=100)
             data = r.json()
             for row in data['_embedded']['clickindex:package']:
-                info = SearchInfo.from_json(row)
-                infos.append(info)
+                yield SearchInfo.from_json(row)
             next = data['_links'].get('next')
             if next is None:
                 break
             query = parse_url_query(next['href'])
             page = int(query['page'])
-        return infos
